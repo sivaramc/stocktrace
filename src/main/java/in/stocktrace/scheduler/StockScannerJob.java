@@ -63,16 +63,23 @@ public class StockScannerJob {
             return;
         }
 
-        // Pick any active user to query quotes with (all can see public market data).
-        KiteUser quoter = activeUsers.get(0);
         List<String> keys = activeRules.stream().map(ScanRule::instrumentKey).distinct().toList();
-
         BrokerService broker = brokerRegistry.getDefault();
-        Map<String, BrokerQuote> quotes;
-        try {
-            quotes = broker.getQuotes(quoter.getUserId(), keys);
-        } catch (RuntimeException ex) {
-            log.warn("scan: failed to fetch quotes: {}", ex.getMessage());
+
+        // Try each active user in turn until one successfully fetches quotes. A single
+        // user with an expired token (deterministically first by PK order) must not
+        // silently stall the scanner for everyone else.
+        Map<String, BrokerQuote> quotes = null;
+        for (KiteUser quoter : activeUsers) {
+            try {
+                quotes = broker.getQuotes(quoter.getUserId(), keys);
+                break;
+            } catch (RuntimeException ex) {
+                log.warn("scan: quote fetch failed via user {}: {}", quoter.getUserId(), ex.getMessage());
+            }
+        }
+        if (quotes == null) {
+            log.warn("scan: no active user could fetch quotes; skipping cycle");
             return;
         }
 
