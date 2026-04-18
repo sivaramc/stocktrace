@@ -29,10 +29,12 @@ public record ChartinkPayload(
         String webhook_url
 ) {
     public String[] stockList() {
-        return stocks == null ? new String[0] : stocks.split("\\s*,\\s*");
+        if (stocks == null || stocks.isBlank()) return new String[0];
+        return stocks.split("\\s*,\\s*");
     }
 
     public String[] triggerPriceList() {
-        return trigger_prices == null ? new String[0] : trigger_prices.split("\\s*,\\s*");
+        if (trigger_prices == null || trigger_prices.isBlank()) return new String[0];
+        return trigger_prices.split("\\s*,\\s*");
     }
 }
