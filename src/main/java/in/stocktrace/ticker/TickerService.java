@@ -65,7 +65,10 @@ public class TickerService {
         }
 
         KiteTicker ticker = new KiteTicker(kite.getAccessToken(), kite.getApiKey());
-        ManagedTicker managed = new ManagedTicker(brokerUserId, ticker, ConcurrentHashMap.newKeySet());
+        // Preserve previously-subscribed tokens across reconnects so the onConnected
+        // handler can re-subscribe them instead of silently dropping the user's feed.
+        Set<Long> tokens = existing != null ? existing.tokens : ConcurrentHashMap.newKeySet();
+        ManagedTicker managed = new ManagedTicker(brokerUserId, ticker, tokens);
         ticker.setTryReconnection(true);
         try {
             ticker.setMaximumRetries(10);
