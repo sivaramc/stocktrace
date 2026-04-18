@@ -63,6 +63,16 @@ public class TickerService {
         if (existing != null && existing.ticker.isConnectionOpen()) {
             return existing;
         }
+        // Stop the old ticker (including its auto-reconnect loop) before replacing
+        // it — otherwise a background reconnect could bring it back online and we'd
+        // have two websockets for the same user both persisting ticks.
+        if (existing != null) {
+            try {
+                existing.ticker.disconnect();
+            } catch (Exception ignored) {
+                // best-effort cleanup; the replacement happens regardless
+            }
+        }
 
         KiteTicker ticker = new KiteTicker(kite.getAccessToken(), kite.getApiKey());
         // Preserve previously-subscribed tokens across reconnects so the onConnected
