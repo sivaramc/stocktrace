@@ -141,7 +141,11 @@ Event log: `GET /api/webhook/chartink/events?page=0&size=50`
 ### Scheduler rules (`scan_rule`)
 - `GET/POST /api/scan-rules`, `GET/PUT/DELETE /api/scan-rules/{id}`
 
-Example rule — buy INFY when LTP crosses above 1800:
+Rules are **one-shot**: the scanner deactivates a rule (`active = false`) as soon as it
+triggers so the same condition cannot fire every minute while it stays true. Re-arm
+explicitly with `PUT /api/scan-rules/{id}` when you want it to watch again.
+
+Example rule — buy INFY the first time LTP crosses above 1800:
 
 ```json
 {
