@@ -79,16 +79,24 @@ public class ChartinkWebhookController {
                 }
             }
 
+            // When we have a trigger price and the caller did not explicitly pick an
+            // orderType, upgrade to LIMIT so the price is actually honoured by Kite
+            // (MARKET orders ignore the price field).
+            String resolvedOrderType = orderType;
+            if (price != null && (resolvedOrderType == null || resolvedOrderType.isBlank())) {
+                resolvedOrderType = "LIMIT";
+            }
+
             BrokerOrderRequest req = new BrokerOrderRequest(
                     symbol,
                     exchange,
                     transactionType,
-                    orderType,           // null -> per-user default (usually MARKET)
+                    resolvedOrderType,   // null -> per-user default (usually MARKET)
                     product,
                     null,                // variety -> per-user default (regular)
                     null,
                     quantity,
-                    price,               // if MARKET order (null orderType), price is ignored by Kite
+                    price,
                     null,
                     null,
                     "chartink"

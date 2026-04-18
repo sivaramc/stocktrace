@@ -8,6 +8,7 @@ import in.stocktrace.broker.zerodha.KiteConnectFactory;
 import in.stocktrace.common.BrokerOperationException;
 import in.stocktrace.user.KiteUser;
 import in.stocktrace.user.KiteUserService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,7 +53,7 @@ public class AuthController {
 
     @PostMapping("/{userId}/session")
     public Map<String, Object> session(@PathVariable String userId,
-                                       @RequestBody SessionRequest body) {
+                                       @Valid @RequestBody SessionRequest body) {
         try {
             KiteUser dbUser = userService.getRequired(userId);
             KiteConnect kite = factory.forLogin(userId);
@@ -74,7 +75,7 @@ public class AuthController {
 
     @PostMapping("/{userId}/renew")
     public Map<String, Object> renew(@PathVariable String userId,
-                                     @RequestBody RenewRequest body) {
+                                     @Valid @RequestBody RenewRequest body) {
         try {
             KiteUser dbUser = userService.getRequired(userId);
             KiteConnect kite = factory.forLogin(userId);

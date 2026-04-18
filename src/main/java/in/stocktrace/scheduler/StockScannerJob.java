@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -49,7 +48,6 @@ public class StockScannerJob {
 
     @Scheduled(cron = "${stocktrace.scheduler.stock-scan.cron:0 */1 9-15 * * MON-FRI}",
                zone = "${stocktrace.scheduler.stock-scan.zone:Asia/Kolkata}")
-    @Transactional
     public void runScan() {
         if (!enabled) {
             return;
@@ -85,6 +83,15 @@ public class StockScannerJob {
             }
             if (rule.matches(q.lastPrice())) {
                 log.info("scan: rule '{}' matched at LTP {}", rule.getName(), q.lastPrice());
+                // One-shot semantics: deactivate and persist the rule BEFORE placing the
+                // broker order. Spring Data repositories run save() in their own
+                // transaction, so the deactivation is committed before any irrevocable
+                // broker call — preventing duplicate orders if the subsequent fan-out
+                // throws or the next scheduled run fires while the price still matches.
+                rule.setLastTriggeredAt(Instant.now());
+                rule.setActive(false);
+                rules.save(rule);
+
                 BrokerOrderRequest req = new BrokerOrderRequest(
                         rule.getTradingsymbol(),
                         rule.getExchange(),
@@ -100,11 +107,6 @@ public class StockScannerJob {
                         "scan-" + rule.getId()
                 );
                 fanout.placeForAllActive("SCAN:" + rule.getName(), req);
-                rule.setLastTriggeredAt(Instant.now());
-                // One-shot trigger: deactivate so the same condition does not fire every minute
-                // while it remains true. Re-enable via PATCH /api/scan-rules/{id} when ready.
-                rule.setActive(false);
-                rules.save(rule);
             }
         }
     }
