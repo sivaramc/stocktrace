@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: stocktrace
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Kolkata
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+stocktrace:
+  scheduler:
+    stock-scan:
+      enabled: true
+      cron: "0 */1 9-15 * * MON-FRI"        # every 1 min during Indian market hours (IST)
+      zone: "Asia/Kolkata"
+  ticker:
+    enabled: true
+    mode: full                               # ltp | quote | full
+  webhook:
+    chartink:
+      secret: ${CHARTINK_WEBHOOK_SECRET:}    # optional shared secret
+  broker:
+    default: zerodha
