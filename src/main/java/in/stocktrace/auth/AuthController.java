@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -59,13 +60,13 @@ public class AuthController {
             // Kite access tokens are valid until 6 AM the next day; store an approximate expiry (~24h).
             Instant expires = Instant.now().plus(Duration.ofHours(20));
             userService.saveSession(userId, kiteUser.accessToken, kiteUser.publicToken, expires);
-            return Map.of(
-                    "userId", userId,
-                    "accessToken", kiteUser.accessToken,
-                    "publicToken", kiteUser.publicToken,
-                    "loginTime", kiteUser.loginTime == null ? null : kiteUser.loginTime.toString(),
-                    "expiresAt", expires.toString()
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("userId", userId);
+            result.put("accessToken", kiteUser.accessToken);
+            result.put("publicToken", kiteUser.publicToken);
+            result.put("loginTime", kiteUser.loginTime == null ? null : kiteUser.loginTime.toString());
+            result.put("expiresAt", expires.toString());
+            return result;
         } catch (KiteException | IOException | org.json.JSONException ex) {
             throw new BrokerOperationException("generateSession failed: " + ex.getMessage(), ex);
         }
@@ -80,11 +81,11 @@ public class AuthController {
             TokenSet tokens = kite.renewAccessToken(body.refreshToken(), dbUser.getApiSecret());
             Instant expires = Instant.now().plus(Duration.ofHours(20));
             userService.saveSession(userId, tokens.accessToken, dbUser.getPublicToken(), expires);
-            return Map.of(
-                    "userId", userId,
-                    "accessToken", tokens.accessToken,
-                    "expiresAt", expires.toString()
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("userId", userId);
+            result.put("accessToken", tokens.accessToken);
+            result.put("expiresAt", expires.toString());
+            return result;
         } catch (KiteException | IOException | org.json.JSONException ex) {
             throw new BrokerOperationException("renewAccessToken failed: " + ex.getMessage(), ex);
         }
