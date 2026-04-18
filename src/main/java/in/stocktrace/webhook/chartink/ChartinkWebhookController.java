@@ -56,7 +56,7 @@ public class ChartinkWebhookController {
             @RequestParam(required = false, defaultValue = "BUY") String transactionType,
             @RequestParam(required = false, defaultValue = "true") boolean useTriggerPriceAsLimit
     ) {
-        if (configuredSecret != null && !configuredSecret.isBlank() && !configuredSecret.equals(secret)) {
+        if (configuredSecret != null && !configuredSecret.isBlank() && !constantTimeEquals(configuredSecret, secret)) {
             log.warn("Chartink webhook rejected: bad secret");
             return ResponseEntity.status(401).build();
         }
@@ -116,6 +116,13 @@ public class ChartinkWebhookController {
     @GetMapping("/events")
     public Page<WebhookEvent> listEvents(@PageableDefault(size = 50) Pageable pageable) {
         return events.findAllByOrderByReceivedAtDesc(pageable);
+    }
+
+    /** Constant-time comparison to avoid leaking the webhook secret via response timing. */
+    private static boolean constantTimeEquals(String expected, String provided) {
+        byte[] a = expected.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] b = (provided == null ? "" : provided).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return java.security.MessageDigest.isEqual(a, b);
     }
 
     private void persistEvent(ChartinkPayload payload) {

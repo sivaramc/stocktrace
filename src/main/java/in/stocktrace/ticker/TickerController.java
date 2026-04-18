@@ -1,5 +1,8 @@
 package in.stocktrace.ticker;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -34,13 +37,13 @@ public class TickerController {
     }
 
     @PostMapping("/{userId}/subscribe")
-    public Map<String, Object> subscribe(@PathVariable String userId, @RequestBody TokenList body) {
+    public Map<String, Object> subscribe(@PathVariable String userId, @Valid @RequestBody TokenList body) {
         service.subscribe(userId, Set.copyOf(body.instrumentTokens()));
         return Map.of("userId", userId, "subscribed", service.subscribedTokens(userId));
     }
 
     @PostMapping("/{userId}/unsubscribe")
-    public Map<String, Object> unsubscribe(@PathVariable String userId, @RequestBody TokenList body) {
+    public Map<String, Object> unsubscribe(@PathVariable String userId, @Valid @RequestBody TokenList body) {
         service.unsubscribe(userId, Set.copyOf(body.instrumentTokens()));
         return Map.of("userId", userId, "subscribed", service.subscribedTokens(userId));
     }
@@ -59,5 +62,5 @@ public class TickerController {
         return logRepo.findAllByOrderByReceivedAtDesc(pageable);
     }
 
-    public record TokenList(List<Long> instrumentTokens) {}
+    public record TokenList(@NotNull @NotEmpty List<Long> instrumentTokens) {}
 }
