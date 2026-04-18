@@ -1,6 +1,5 @@
 package in.stocktrace.webhook.chartink;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import in.stocktrace.broker.OrderFanoutService;
 import in.stocktrace.broker.model.BrokerOrderRequest;
@@ -130,7 +129,9 @@ public class ChartinkWebhookController {
             e.setTriggerPrices(payload.trigger_prices());
             e.setTriggeredAt(payload.triggered_at());
             events.save(e);
-        } catch (JsonProcessingException ex) {
+        } catch (Exception ex) {
+            // Best-effort persistence: a serialization or DB failure here must not
+            // block the downstream order fan-out.
             log.warn("Unable to persist Chartink webhook payload: {}", ex.getMessage());
         }
     }

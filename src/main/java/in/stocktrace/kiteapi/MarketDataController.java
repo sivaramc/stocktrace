@@ -59,8 +59,11 @@ public class MarketDataController {
                                      @RequestParam(defaultValue = "day") String interval,
                                      @RequestParam(defaultValue = "false") boolean continuous,
                                      @RequestParam(defaultValue = "false") boolean oi) {
-        Date fromDate = Date.from(from.atZone(ZoneId.systemDefault()).toInstant());
-        Date toDate = Date.from(to.atZone(ZoneId.systemDefault()).toInstant());
+        // Kite historical data is IST; interpret caller's LocalDateTime in Asia/Kolkata
+        // to stay consistent with hibernate.jdbc.time_zone and the scheduler cron zone.
+        ZoneId ist = ZoneId.of("Asia/Kolkata");
+        Date fromDate = Date.from(from.atZone(ist).toInstant());
+        Date toDate = Date.from(to.atZone(ist).toInstant());
         return kite.call(userId, k -> k.getHistoricalData(fromDate, toDate, instrumentToken, interval, continuous, oi));
     }
 }
