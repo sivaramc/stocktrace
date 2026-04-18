@@ -101,6 +101,9 @@ public class StockScannerJob {
                 );
                 fanout.placeForAllActive("SCAN:" + rule.getName(), req);
                 rule.setLastTriggeredAt(Instant.now());
+                // One-shot trigger: deactivate so the same condition does not fire every minute
+                // while it remains true. Re-enable via PATCH /api/scan-rules/{id} when ready.
+                rule.setActive(false);
                 rules.save(rule);
             }
         }

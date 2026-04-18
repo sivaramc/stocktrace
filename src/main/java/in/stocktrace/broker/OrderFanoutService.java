@@ -59,7 +59,11 @@ public class OrderFanoutService {
                         log.warn("[{}] fan-out failed for user {}: {}", source, u.getUserId(), ex.getMessage());
                         result = BrokerOrderResult.fail(u.getUserId(), ex.getMessage());
                     }
-                    audit.record(source, u.getUserId(), request, result);
+                    try {
+                        audit.record(source, u.getUserId(), request, result);
+                    } catch (RuntimeException ex) {
+                        log.error("[{}] audit record failed for user {}: {}", source, u.getUserId(), ex.getMessage(), ex);
+                    }
                     return result;
                 }, executor))
                 .toList();
