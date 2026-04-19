@@ -19,6 +19,10 @@ public class OrderAudit {
     @Column(name = "kite_user_id", nullable = false, length = 64)
     private String kiteUserId;
 
+    /** Broker that handled this order, e.g. {@code zerodha} or {@code 5paisa}. */
+    @Column(nullable = false, length = 16)
+    private String broker = "zerodha";
+
     @Column(nullable = false, length = 32)
     private String source;
 

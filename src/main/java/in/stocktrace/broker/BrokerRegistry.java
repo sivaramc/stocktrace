@@ -29,6 +29,10 @@ public class BrokerRegistry {
         return b;
     }
 
+    public boolean isRegistered(String brokerId) {
+        return brokers.containsKey(brokerId);
+    }
+
     public BrokerService getDefault() {
         return get(defaultBroker);
     }
