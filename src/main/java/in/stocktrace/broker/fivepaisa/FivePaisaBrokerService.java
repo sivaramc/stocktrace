@@ -103,8 +103,11 @@ public class FivePaisaBrokerService implements BrokerService {
                             ? String.valueOf(inner.get("Message")) : raw;
                     int status = inner != null && inner.get("Status") != null
                             ? ((Number) inner.get("Status")).intValue() : -1;
-                    if (status == 0 || brokerOrderId != null) {
-                        return BrokerOrderResult.ok(brokerUserId, brokerOrderId);
+                    // 5paisa returns BrokerOrderID=0 on failure (Long(0) -> "0"),
+                    // so require a non-zero id when treating id alone as success.
+                    boolean hasValidOrderId = brokerOrderId != null && !"0".equals(brokerOrderId);
+                    if (status == 0 || hasValidOrderId) {
+                        return BrokerOrderResult.ok(brokerUserId, hasValidOrderId ? brokerOrderId : null);
                     }
                     return BrokerOrderResult.fail(brokerUserId, message);
                 }
