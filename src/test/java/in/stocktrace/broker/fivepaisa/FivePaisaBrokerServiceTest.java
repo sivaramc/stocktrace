@@ -53,4 +53,19 @@ class FivePaisaBrokerServiceTest {
         assertThatThrownBy(() -> FivePaisaBrokerService.parseScripCode(null))
                 .isInstanceOf(BrokerOperationException.class);
     }
+
+    @Test
+    void isValidScripCodeAcceptsPositiveNumericStrings() {
+        assertThat(FivePaisaBrokerService.isValidScripCode("1594")).isTrue();
+        assertThat(FivePaisaBrokerService.isValidScripCode(" 42 ")).isTrue();
+    }
+
+    @Test
+    void isValidScripCodeRejectsNonNumericAndNonPositive() {
+        assertThat(FivePaisaBrokerService.isValidScripCode("INFY")).isFalse();
+        assertThat(FivePaisaBrokerService.isValidScripCode("")).isFalse();
+        assertThat(FivePaisaBrokerService.isValidScripCode(null)).isFalse();
+        assertThat(FivePaisaBrokerService.isValidScripCode("0")).isFalse();
+        assertThat(FivePaisaBrokerService.isValidScripCode("-5")).isFalse();
+    }
 }

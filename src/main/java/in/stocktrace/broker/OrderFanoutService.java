@@ -1,6 +1,7 @@
 package in.stocktrace.broker;
 
 import in.stocktrace.audit.OrderAuditService;
+import in.stocktrace.broker.fivepaisa.FivePaisaBrokerService;
 import in.stocktrace.broker.fivepaisa.FivePaisaUser;
 import in.stocktrace.broker.fivepaisa.FivePaisaUserService;
 import in.stocktrace.broker.model.BrokerOrderRequest;
@@ -61,11 +62,19 @@ public class OrderFanoutService {
             }
         }
 
-        if (brokerRegistry.isRegistered("5paisa")) {
+        // 5paisa identifies instruments by numeric ScripCode. Chartink webhooks
+        // and scanner rules typically carry Kite-style trading symbols (e.g.
+        // "INFY"), so gate the 5paisa fan-out on a numeric symbol to avoid
+        // flooding the audit log with guaranteed-failure rows.
+        if (brokerRegistry.isRegistered("5paisa")
+                && FivePaisaBrokerService.isValidScripCode(request.tradingsymbol())) {
             BrokerService fivePaisa = brokerRegistry.get("5paisa");
             for (FivePaisaUser u : fivePaisaUsers.listActive()) {
                 futures.add(submit("5paisa", source, fivePaisa, u.getUserId(), request));
             }
+        } else if (brokerRegistry.isRegistered("5paisa") && !fivePaisaUsers.listActive().isEmpty()) {
+            log.debug("[{}] skipping 5paisa fan-out: '{}' is not a numeric ScripCode",
+                    source, request.tradingsymbol());
         }
 
         if (futures.isEmpty()) {

@@ -49,61 +49,65 @@ public class FivePaisaBrokerService implements BrokerService {
     @Override
     @SuppressWarnings("unchecked")
     public BrokerOrderResult placeOrder(String brokerUserId, BrokerOrderRequest request) {
-        FivePaisaUser user = userService.getRequired(brokerUserId);
-        RestClient client = factory.forUser(brokerUserId);
+        // Mirror the ZerodhaBrokerService contract: never throw from placeOrder,
+        // always return a BrokerOrderResult so callers can rely on uniform handling.
+        try {
+            FivePaisaUser user = userService.getRequired(brokerUserId);
+            RestClient client = factory.forUser(brokerUserId);
 
-        int scripCode = parseScripCode(request.tradingsymbol());
-        Integer qty = request.quantity() != null ? request.quantity() : user.getDefaultQuantity();
-        Double price = request.price();
-        boolean atMarket = price == null || price <= 0d;
-        String exchange = mapExchange(request.exchange() != null ? request.exchange() : user.getDefaultExchange());
-        String exchangeType = user.getDefaultExchangeType();
+            int scripCode = parseScripCode(request.tradingsymbol());
+            Integer qty = request.quantity() != null ? request.quantity() : user.getDefaultQuantity();
+            Double price = request.price();
+            boolean atMarket = price == null || price <= 0d;
+            String exchange = mapExchange(request.exchange() != null ? request.exchange() : user.getDefaultExchange());
+            String exchangeType = user.getDefaultExchangeType();
 
-        JSONObject body = new JSONObject();
-        body.put("ClientCode", user.getClientCode());
-        body.put("OrderFor", "P");
-        body.put("Exchange", exchange);
-        body.put("ExchangeType", exchangeType);
-        body.put("ScripCode", scripCode);
-        body.put("Price", atMarket ? 0d : price);
-        body.put("OrderID", 0);
-        body.put("OrderType", request.transactionType() != null ? request.transactionType() : "BUY");
-        body.put("Qty", qty);
-        body.put("OrderDateTime", "/Date(" + System.currentTimeMillis() + ")/");
-        body.put("AtMarket", atMarket);
-        body.put("RemoteOrderID", "stocktrace-" + System.currentTimeMillis());
-        body.put("ExchOrderID", 0);
-        body.put("DisQty", 0);
-        body.put("IsStopLossOrder", false);
-        body.put("StopLossPrice", request.triggerPrice() != null ? request.triggerPrice() : 0d);
-        body.put("IsVTD", false);
-        body.put("IOCOrder", false);
-        body.put("IsIntraday", user.isDefaultIsIntraday());
-        body.put("AHPlaced", "N");
-        body.put("iOrderValidity", 0);
-        body.put("OrderRequesterCode", user.getClientCode());
-        body.put("TradedQty", 0);
-        body.put("AppSource", 11033);
+            JSONObject body = new JSONObject();
+            body.put("ClientCode", user.getClientCode());
+            body.put("OrderFor", "P");
+            body.put("Exchange", exchange);
+            body.put("ExchangeType", exchangeType);
+            body.put("ScripCode", scripCode);
+            body.put("Price", atMarket ? 0d : price);
+            body.put("OrderID", 0);
+            body.put("OrderType", request.transactionType() != null ? request.transactionType() : "BUY");
+            body.put("Qty", qty);
+            body.put("OrderDateTime", "/Date(" + System.currentTimeMillis() + ")/");
+            body.put("AtMarket", atMarket);
+            body.put("RemoteOrderID", "stocktrace-" + System.currentTimeMillis());
+            body.put("ExchOrderID", 0);
+            body.put("DisQty", 0);
+            body.put("IsStopLossOrder", false);
+            body.put("StopLossPrice", request.triggerPrice() != null ? request.triggerPrice() : 0d);
+            body.put("IsVTD", false);
+            body.put("IOCOrder", false);
+            body.put("IsIntraday", user.isDefaultIsIntraday());
+            body.put("AHPlaced", "N");
+            body.put("iOrderValidity", 0);
+            body.put("OrderRequesterCode", user.getClientCode());
+            body.put("TradedQty", 0);
+            body.put("AppSource", 11033);
 
-        try (Response response = client.placeOrderRequest(body)) {
-            String raw = response.body() != null ? response.body().string() : "";
-            // json-simple's JSONParser is stateful and NOT thread-safe; fan-out runs on
-            // a shared executor, so use a fresh parser per call.
-            JSONObject parsed = (JSONObject) new JSONParser().parse(raw);
-            JSONObject inner = parsed != null ? (JSONObject) parsed.get("body") : null;
-            String brokerOrderId = inner != null && inner.get("BrokerOrderID") != null
-                    ? String.valueOf(inner.get("BrokerOrderID")) : null;
-            String message = inner != null && inner.get("Message") != null
-                    ? String.valueOf(inner.get("Message")) : raw;
-            int status = inner != null && inner.get("Status") != null
-                    ? ((Number) inner.get("Status")).intValue() : -1;
-            if (status == 0 || brokerOrderId != null) {
-                return BrokerOrderResult.ok(brokerUserId, brokerOrderId);
+            try (Response response = client.placeOrderRequest(body)) {
+                String raw = response.body() != null ? response.body().string() : "";
+                // json-simple's JSONParser is stateful and NOT thread-safe; fan-out runs on
+                // a shared executor, so use a fresh parser per call.
+                JSONObject parsed = (JSONObject) new JSONParser().parse(raw);
+                JSONObject inner = parsed != null ? (JSONObject) parsed.get("body") : null;
+                String brokerOrderId = inner != null && inner.get("BrokerOrderID") != null
+                        ? String.valueOf(inner.get("BrokerOrderID")) : null;
+                String message = inner != null && inner.get("Message") != null
+                        ? String.valueOf(inner.get("Message")) : raw;
+                int status = inner != null && inner.get("Status") != null
+                        ? ((Number) inner.get("Status")).intValue() : -1;
+                if (status == 0 || brokerOrderId != null) {
+                    return BrokerOrderResult.ok(brokerUserId, brokerOrderId);
+                }
+                return BrokerOrderResult.fail(brokerUserId, message);
             }
-            return BrokerOrderResult.fail(brokerUserId, message);
         } catch (Exception ex) {
             log.warn("5paisa placeOrder failed for {}: {}", brokerUserId, ex.getMessage());
-            throw new BrokerOperationException("5paisa placeOrder failed: " + ex.getMessage(), ex);
+            return BrokerOrderResult.fail(brokerUserId, ex.getMessage());
         }
     }
 
@@ -192,6 +196,21 @@ public class FivePaisaBrokerService implements BrokerService {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException ex) {
             throw new BrokerOperationException("5paisa requires a numeric ScripCode, got: " + value);
+        }
+    }
+
+    /**
+     * @return {@code true} iff {@code value} is a non-blank string that parses
+     *         to a positive integer (i.e. a valid 5paisa ScripCode). Used by
+     *         the fan-out path to skip 5paisa users when the rule / webhook
+     *         carries a Kite-style trading symbol rather than a ScripCode.
+     */
+    public static boolean isValidScripCode(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            return Integer.parseInt(value.trim()) > 0;
+        } catch (NumberFormatException ex) {
+            return false;
         }
     }
 }
