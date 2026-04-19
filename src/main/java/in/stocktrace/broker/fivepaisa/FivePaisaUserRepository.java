@@ -10,4 +10,8 @@ public interface FivePaisaUserRepository extends JpaRepository<FivePaisaUser, Lo
     Optional<FivePaisaUser> findByUserId(String userId);
 
     List<FivePaisaUser> findAllByActiveTrue();
+
+    Optional<FivePaisaUser> findByOwnerAppUserId(Long ownerAppUserId);
+
+    List<FivePaisaUser> findAllByOwnerAppUserId(Long ownerAppUserId);
 }
