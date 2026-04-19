@@ -57,7 +57,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
-            } catch (JwtException ex) {
+            } catch (JwtException | IllegalArgumentException ex) {
+                // JJWT's parseSignedClaims(...) throws IllegalArgumentException on null/empty input,
+                // so we have to include it to avoid leaking a 500 when a client sends "Bearer ".
                 log.debug("Rejected JWT on {}: {}", request.getRequestURI(), ex.getMessage());
                 // Leave context unauthenticated; SecurityConfig will 401 if required.
             }
