@@ -65,7 +65,7 @@ public class FivePaisaUserController {
         u.setPassword(req.password());
         u.setLoginId(req.loginId());
         u.setClientCode(req.clientCode());
-        u.setActive(req.active() != null ? req.active() : false);
+        if (req.active() != null) u.setActive(req.active());
         if (req.defaultExchange() != null) u.setDefaultExchange(req.defaultExchange());
         if (req.defaultExchangeType() != null) u.setDefaultExchangeType(req.defaultExchangeType());
         if (req.defaultQuantity() != null) u.setDefaultQuantity(req.defaultQuantity());
