@@ -14,3 +14,9 @@ spring:
 logging:
   level:
     in.stocktrace: DEBUG
+
+stocktrace:
+  admin:
+    # Dev-only default admin; override with env vars in prod.
+    email: ${STOCKTRACE_ADMIN_EMAIL:admin@stocktrace.local}
+    password: ${STOCKTRACE_ADMIN_PASSWORD:admin12345}

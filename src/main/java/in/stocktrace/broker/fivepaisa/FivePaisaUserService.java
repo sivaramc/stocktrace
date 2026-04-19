@@ -50,4 +50,11 @@ public class FivePaisaUserService {
         u.setJwtExpiresAt(expiresAt);
         return repo.save(u);
     }
+
+    @Transactional
+    public FivePaisaUser setActive(String userId, boolean active) {
+        FivePaisaUser u = getRequired(userId);
+        u.setActive(active);
+        return repo.save(u);
+    }
 }

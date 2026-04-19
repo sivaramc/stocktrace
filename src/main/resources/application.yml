@@ -44,3 +44,14 @@ stocktrace:
       secret: ${CHARTINK_WEBHOOK_SECRET:}    # optional shared secret
   broker:
     default: zerodha
+  auth:
+    jwt:
+      # Must be >=32 bytes. Override in prod via env var.
+      secret: ${STOCKTRACE_JWT_SECRET:dev-only-change-me-to-a-long-random-32plus-byte-secret-string}
+      ttl-seconds: ${STOCKTRACE_JWT_TTL_SECONDS:28800}    # 8 hours
+      issuer: stocktrace
+  admin:
+    # Seeded on startup when both are non-blank. Idempotent — rotation is a manual DB/API op.
+    email: ${STOCKTRACE_ADMIN_EMAIL:}
+    password: ${STOCKTRACE_ADMIN_PASSWORD:}
+    display-name: Administrator

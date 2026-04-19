@@ -24,6 +24,10 @@ public class FivePaisaUser {
     @Column(name = "user_id", nullable = false, unique = true, length = 64)
     private String userId;
 
+    /** FK to {@code app_users.id}; NULL for legacy / admin-managed rows. */
+    @Column(name = "owner_app_user_id")
+    private Long ownerAppUserId;
+
     @Column(length = 128)
     private String label;
 

@@ -15,3 +15,11 @@ stocktrace:
       enabled: false
   ticker:
     enabled: false
+  auth:
+    jwt:
+      secret: test-secret-test-secret-test-secret-abcdefghij0123456789
+      ttl-seconds: 3600
+      issuer: stocktrace-test
+  admin:
+    email: ""
+    password: ""
