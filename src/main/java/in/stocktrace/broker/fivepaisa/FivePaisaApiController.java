@@ -97,9 +97,9 @@ public class FivePaisaApiController {
 
     @PostMapping(value = "/auth/login-check", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> loginCheck(@RequestHeader("X-User-Id") String userId, @RequestBody Map<String, Object> body) {
-        RestClient client = factory.forUser(userId);
+        JSONObject payload = toJson(body);
         try {
-            String resp = client.loginCheck(toJson(body));
+            String resp = factory.execute(userId, client -> client.loginCheck(payload));
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(resp);
         } catch (Exception ex) {
             throw new BrokerOperationException("5paisa loginCheck failed: " + ex.getMessage(), ex);
@@ -114,12 +114,19 @@ public class FivePaisaApiController {
     }
 
     private ResponseEntity<String> invoke(String userId, Map<String, Object> body, RestCall fn) {
-        RestClient client = factory.forUser(userId);
-        try (Response response = fn.call(client, toJson(body))) {
-            String raw = response.body() != null ? response.body().string() : "";
-            return ResponseEntity.status(response.code())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(raw);
+        JSONObject payload = toJson(body);
+        try {
+            // Serialise on the cached RestClient for this user; the SDK is not
+            // thread-safe and concurrent callers would otherwise corrupt shared
+            // JSONParser / cookie / JWT state.
+            return factory.execute(userId, client -> {
+                try (Response response = fn.call(client, payload)) {
+                    String raw = response.body() != null ? response.body().string() : "";
+                    return ResponseEntity.status(response.code())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(raw);
+                }
+            });
         } catch (Exception ex) {
             throw new BrokerOperationException("5paisa upstream call failed: " + ex.getMessage(), ex);
         }

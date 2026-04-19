@@ -32,9 +32,12 @@ public class FivePaisaAuthController {
     public Map<String, Object> totpSession(@PathVariable String userId,
                                            @Valid @RequestBody TotpSessionRequest body) {
         FivePaisaUser user = userService.getRequired(userId);
-        RestClient client = factory.forUser(userId);
         try {
-            String jwt = client.getTotpSession(user.getClientCode(), body.totp(), body.pin());
+            // Serialise with any other in-flight 5paisa call for this user;
+            // TOTP mutates the RestClient's cookie + JWT state, which the SDK
+            // also reads under no lock on subsequent API calls.
+            String jwt = factory.execute(userId,
+                    client -> client.getTotpSession(user.getClientCode(), body.totp(), body.pin()));
             // 5paisa JWTs are valid for the trading day; expire conservatively in 12h.
             Instant expires = Instant.now().plus(Duration.ofHours(12));
             userService.saveJwt(userId, jwt, expires);

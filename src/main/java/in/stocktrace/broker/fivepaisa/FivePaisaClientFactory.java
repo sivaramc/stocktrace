@@ -5,32 +5,62 @@ import com.FivePaisa.config.AppConfig;
 import com.FivePaisa.service.Properties;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
- * Builds {@link RestClient} instances scoped to a single {@link FivePaisaUser}.
+ * Builds and hands out {@link RestClient} instances scoped to a single
+ * {@link FivePaisaUser}.
  *
- * <p>{@code RestClient} carries mutable state (cookies + JWT) inside its
- * {@code AppConfig} after a call to {@code getTotpSession}. We therefore cache
- * one {@code RestClient} per stocktrace user-id and replay the JWT exchange on
- * demand from the caller (typically the auth controller).
+ * <p><strong>Thread-safety:</strong> the 5paisa SDK's {@code RestClient}
+ * carries mutable state that is <em>not</em> thread-safe &mdash; it holds
+ * internal {@code org.json.simple.parser.JSONParser} instances and mutable
+ * cookie/JWT fields inside {@code ApiCalls}. The cached client per user must
+ * therefore be accessed under a lock so concurrent callers (fan-out threads,
+ * parallel passthrough HTTP requests, or a TOTP re-auth running alongside a
+ * placeOrder) never race on that state.
+ *
+ * <p>We also cannot simply build a fresh client per call: the JWT obtained
+ * from {@code getTotpSession} is stored on the {@code RestClient} and has no
+ * public setter, so a new client wouldn't be authenticated.
+ *
+ * <p>Callers should go through {@link #execute(String, ClientCall)} rather
+ * than using {@link #forUser(String)} directly. {@link #forUser(String)} is
+ * kept for read-only inspection (e.g. tests) but is not safe for concurrent
+ * use.
  */
 @Component
 public class FivePaisaClientFactory {
 
     private final FivePaisaUserService userService;
-    private final java.util.Map<String, RestClient> clients = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, RestClient> clients = new ConcurrentHashMap<>();
 
     public FivePaisaClientFactory(FivePaisaUserService userService) {
         this.userService = userService;
     }
 
-    /** Returns (creating if needed) the cached {@link RestClient} for the given user. */
+    /**
+     * Returns (creating if needed) the cached {@link RestClient} for the given
+     * user. The returned instance is <em>not</em> thread-safe; callers that
+     * invoke methods on it must do so under {@code synchronized(client)} or,
+     * preferably, use {@link #execute(String, ClientCall)}.
+     */
     public RestClient forUser(String userId) {
         return clients.computeIfAbsent(userId, k -> build(userService.getRequired(k)));
     }
 
-    /** Returns the persisted {@link FivePaisaUser} alongside its {@link RestClient}. */
-    public FivePaisaUser userFor(String userId) {
-        return userService.getRequired(userId);
+    /**
+     * Runs {@code call} against the cached {@link RestClient} for {@code userId}
+     * while holding the monitor on that client, serialising same-user access so
+     * the SDK's non-thread-safe mutable state (JSONParser, cookies, JWT) cannot
+     * be corrupted by concurrent callers. Different users still run in parallel
+     * because each has its own cached client and therefore its own monitor.
+     */
+    public <T> T execute(String userId, ClientCall<T> call) throws Exception {
+        RestClient client = forUser(userId);
+        synchronized (client) {
+            return call.apply(client);
+        }
     }
 
     /** Drop the cached client (e.g. on credential rotation). */
@@ -53,5 +83,11 @@ public class FivePaisaClientFactory {
         properties.setClientcode(user.getClientCode());
 
         return new RestClient(config, properties);
+    }
+
+    /** Function that invokes a single method on the 5paisa {@link RestClient}. */
+    @FunctionalInterface
+    public interface ClientCall<T> {
+        T apply(RestClient client) throws Exception;
     }
 }
