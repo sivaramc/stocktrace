@@ -35,7 +35,6 @@ public class FivePaisaBrokerService implements BrokerService {
 
     private final FivePaisaClientFactory factory;
     private final FivePaisaUserService userService;
-    private final JSONParser parser = new JSONParser();
 
     public FivePaisaBrokerService(FivePaisaClientFactory factory, FivePaisaUserService userService) {
         this.factory = factory;
@@ -88,7 +87,9 @@ public class FivePaisaBrokerService implements BrokerService {
 
         try (Response response = client.placeOrderRequest(body)) {
             String raw = response.body() != null ? response.body().string() : "";
-            JSONObject parsed = (JSONObject) parser.parse(raw);
+            // json-simple's JSONParser is stateful and NOT thread-safe; fan-out runs on
+            // a shared executor, so use a fresh parser per call.
+            JSONObject parsed = (JSONObject) new JSONParser().parse(raw);
             JSONObject inner = parsed != null ? (JSONObject) parsed.get("body") : null;
             String brokerOrderId = inner != null && inner.get("BrokerOrderID") != null
                     ? String.valueOf(inner.get("BrokerOrderID")) : null;
@@ -136,7 +137,7 @@ public class FivePaisaBrokerService implements BrokerService {
 
         try (Response response = client.marketFeed(body)) {
             String raw = response.body() != null ? response.body().string() : "";
-            JSONObject parsed = (JSONObject) parser.parse(raw);
+            JSONObject parsed = (JSONObject) new JSONParser().parse(raw);
             JSONObject inner = parsed != null ? (JSONObject) parsed.get("body") : null;
             JSONArray rows = inner != null ? (JSONArray) inner.get("Data") : null;
             Map<String, BrokerQuote> out = new LinkedHashMap<>();

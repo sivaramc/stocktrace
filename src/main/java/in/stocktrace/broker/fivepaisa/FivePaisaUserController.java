@@ -21,30 +21,30 @@ public class FivePaisaUserController {
     }
 
     @GetMapping
-    public List<FivePaisaUser> list() {
-        return service.listAll();
+    public List<FivePaisaUserDto.Response> list() {
+        return service.listAll().stream().map(FivePaisaUserDto.Response::from).toList();
     }
 
     @GetMapping("/{userId}")
-    public FivePaisaUser get(@PathVariable String userId) {
-        return service.getRequired(userId);
+    public FivePaisaUserDto.Response get(@PathVariable String userId) {
+        return FivePaisaUserDto.Response.from(service.getRequired(userId));
     }
 
     @PostMapping
-    public FivePaisaUser create(@Valid @RequestBody UpsertRequest req) {
+    public FivePaisaUserDto.Response create(@Valid @RequestBody UpsertRequest req) {
         FivePaisaUser u = new FivePaisaUser();
         applyTo(u, req);
         u.setUserId(req.userId());
-        return service.save(u);
+        return FivePaisaUserDto.Response.from(service.save(u));
     }
 
     @PutMapping("/{userId}")
-    public FivePaisaUser update(@PathVariable String userId, @Valid @RequestBody UpsertRequest req) {
+    public FivePaisaUserDto.Response update(@PathVariable String userId, @Valid @RequestBody UpsertRequest req) {
         FivePaisaUser u = service.getRequired(userId);
         applyTo(u, req);
         FivePaisaUser saved = service.save(u);
         factory.evict(userId);
-        return saved;
+        return FivePaisaUserDto.Response.from(saved);
     }
 
     @DeleteMapping("/{userId}")
