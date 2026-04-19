@@ -29,7 +29,16 @@ public class OrderAuditService {
                              String kiteUserId,
                              BrokerOrderRequest request,
                              BrokerOrderResult result) {
+        return record("zerodha", source, kiteUserId, request, result);
+    }
+
+    public OrderAudit record(String broker,
+                             String source,
+                             String kiteUserId,
+                             BrokerOrderRequest request,
+                             BrokerOrderResult result) {
         OrderAudit a = new OrderAudit();
+        a.setBroker(broker);
         a.setKiteUserId(kiteUserId);
         a.setSource(source);
         a.setTradingsymbol(n(request.tradingsymbol()));

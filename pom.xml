@@ -20,7 +20,19 @@
     <properties>
         <java.version>17</java.version>
         <kiteconnect.version>4.0.0</kiteconnect.version>
+        <fivepaisa.version>0.0.2-SNAPSHOT</fivepaisa.version>
     </properties>
+
+    <repositories>
+        <!-- Vendored 5paisa SDK (no Maven Central artifact). The jar lives in
+             local-maven-repo/ checked in to this repo. -->
+        <repository>
+            <id>stocktrace-local</id>
+            <url>file:${project.basedir}/local-maven-repo</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -60,6 +72,12 @@
             <groupId>com.zerodhatech.kiteconnect</groupId>
             <artifactId>kiteconnect</artifactId>
             <version>${kiteconnect.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.FivePaisa</groupId>
+            <artifactId>FivePaisa</artifactId>
+            <version>${fivepaisa.version}</version>
         </dependency>
 
         <dependency>

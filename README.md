@@ -176,14 +176,68 @@ Example rule — buy INFY the first time LTP crosses above 1800:
 - `GET /api/brokers` — lists registered brokers and the default one.
 - `GET /actuator/health`
 
-## Adding a new broker
+## 5paisa broker
+
+stocktrace ships a second `BrokerService` implementation backed by the
+[5paisa Java SDK](https://github.com/sivaramc/5paisa-java). The SDK jar has no
+Maven Central artifact so it is vendored under `local-maven-repo/` and wired up
+via `<repositories>` in `pom.xml`.
+
+### 5paisa user management
+
+5paisa auth is fundamentally different from Kite (AES-encrypted creds + TOTP
+login), so 5paisa accounts live in their own table `fivepaisa_users` with its
+own CRUD endpoints:
+
+- `POST /api/5paisa/users` — register (`appName`, `encryptKey`, `userKey`, `fivepaisaUserId`, `password`, `loginId`, `clientCode`, defaults).
+- `GET /api/5paisa/users`, `GET /api/5paisa/users/{userId}`, `PUT /api/5paisa/users/{userId}`, `DELETE /api/5paisa/users/{userId}`.
+- `POST /api/5paisa/auth/{userId}/totp-session` — exchange TOTP + PIN for a JWT; persisted on the user record.
+
+### 5paisa API passthroughs
+
+Every method on `com.FivePaisa.api.RestClient` is exposed verbatim. All routes
+take the stocktrace user id via the `X-User-Id` header and forward the request
+body to the SDK as JSON. Responses are returned as-is (content type preserved).
+
+| Route | SDK method |
+|---|---|
+| `POST /api/5paisa/orders/place` | `placeOrderRequest` |
+| `POST /api/5paisa/orders/modify` | `modifyOrderRequest` |
+| `POST /api/5paisa/orders/cancel` | `cancelOrderRequest` |
+| `POST /api/5paisa/orders/smo/place` | `smoOrderRequest` |
+| `POST /api/5paisa/orders/smo/modify` | `modifySmoOrder` |
+| `POST /api/5paisa/orders/status` | `orderStatus` |
+| `POST /api/5paisa/orders/book` | `orderBookV2` |
+| `POST /api/5paisa/orders/trades` | `tradeInformation` |
+| `POST /api/5paisa/portfolio/holdings` | `holdingV2` |
+| `POST /api/5paisa/portfolio/positions` | `netPositionNetWiseV1` |
+| `POST /api/5paisa/portfolio/margin` | `marginV3` |
+| `POST /api/5paisa/marketdata/feed` | `marketFeed` |
+| `POST /api/5paisa/auth/login-check` | `loginCheck` |
+
+### Multi-broker fan-out
+
+`OrderFanoutService` now walks **every** registered broker and places the order
+on all active users in parallel. A single Chartink alert therefore fires orders
+on both Zerodha and 5paisa accounts. Failures are isolated per-user and
+recorded in `order_audit` (now carrying a `broker` column).
+
+### Symbol convention
+
+5paisa identifies instruments by numeric **ScripCode**, not trading symbol.
+When fan-out targets a 5paisa user, `BrokerOrderRequest.tradingsymbol()` is
+parsed as a `ScripCode` (e.g. `"1594"` for Infosys on NSE). Symbol -> ScripCode
+mapping (ingesting the 5paisa scrip master) is out of scope for this release.
+
+## Adding another broker
 
 1. Implement `in.stocktrace.broker.BrokerService` and register it as a Spring bean.
 2. The bean's `id()` is used by `stocktrace.broker.default` and the `BrokerRegistry`.
-3. The webhook and scheduler automatically use `BrokerRegistry.getDefault()`.
+3. Add the broker id to `OrderFanoutService.placeForAllActive` if you also want
+   Chartink/scanner fan-out to target its users.
 
-Broker-native endpoints (GTT, MF, etc.) live under `/api/kite/**` because they are Zerodha-specific.
-For 5paisa you'd add `/api/paisa/**` controllers alongside its broker implementation.
+Broker-native endpoints (GTT, MF, etc.) live under `/api/kite/**` and
+`/api/5paisa/**` respectively.
 
 ## Project layout
 
@@ -194,6 +248,7 @@ src/main/java/in/stocktrace/
   auth/             # per-user Kite OAuth-ish flow
   broker/           # BrokerService, BrokerRegistry, OrderFanoutService
   broker/zerodha/   # ZerodhaBrokerService + KiteConnectFactory
+  broker/fivepaisa/ # FivePaisaBrokerService + user/auth/api controllers
   common/           # exceptions + global error handler
   kiteapi/          # REST controllers that passthrough to the Kite SDK
   scheduler/        # scan_rule + StockScannerJob
@@ -202,7 +257,8 @@ src/main/java/in/stocktrace/
   webhook/chartink/ # Chartink alert endpoint
 src/main/resources/
   application.yml, application-dev.yml, application-prod.yml
-  db/migration/V1__init.sql
+  db/migration/V1__init.sql, V2__fivepaisa.sql
+local-maven-repo/   # vendored 5paisa SDK jar
 ```
 
 ## Security notes
