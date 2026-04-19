@@ -69,9 +69,9 @@ public class TradeOnController {
             Instant expires = Instant.now().plus(Duration.ofHours(12));
             fivePaisaUsers.saveJwt(user.getUserId(), jwt, expires);
             // Flip active=true so the user participates in fan-out / self-trade immediately.
+            // Re-fetch inside setActive(...) to avoid clobbering the JWT just persisted above.
             if (!user.isActive()) {
-                user.setActive(true);
-                fivePaisaUsers.save(user);
+                fivePaisaUsers.setActive(user.getUserId(), true);
             }
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("broker", "5paisa");
