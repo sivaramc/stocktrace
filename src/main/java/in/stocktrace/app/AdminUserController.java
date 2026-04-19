@@ -1,5 +1,6 @@
 package in.stocktrace.app;
 
+import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -49,7 +50,7 @@ public class AdminUserController {
 
     @PostMapping("/{id}/role")
     public AppUserDto.AdminRow changeRole(@PathVariable Long id,
-                                          @RequestBody AppUserDto.ChangeRoleRequest req) {
+                                          @Valid @RequestBody AppUserDto.ChangeRoleRequest req) {
         AppRole role = AppRole.valueOf(req.role().toUpperCase());
         return row(service.setRole(id, role));
     }

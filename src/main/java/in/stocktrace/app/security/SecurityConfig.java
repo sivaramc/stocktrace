@@ -44,8 +44,9 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
-                        // Chartink webhook has its own shared-secret auth, not JWT.
-                        .requestMatchers("/api/webhook/chartink/**").permitAll()
+                        // Chartink webhook POST has its own shared-secret auth, not JWT.
+                        // Deliberately scoped to POST root — GET /events (history) still requires a JWT.
+                        .requestMatchers(HttpMethod.POST, "/api/webhook/chartink").permitAll()
                         // H2 console (dev only). Disabled in prod via application-prod.yml.
                         .requestMatchers("/h2-console/**").permitAll()
                         // Error dispatch
