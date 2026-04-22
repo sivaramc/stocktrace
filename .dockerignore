@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vscode
+target
+data
+logs
+*.log
+node_modules
+deploy/.env
+deploy/*.env

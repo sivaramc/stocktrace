@@ -1,0 +1,72 @@
+# Production deploy stack: stocktrace app + Postgres + Caddy (auto TLS).
+#
+# Run on the VPS:
+#     docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+#
+# The companion deploy script (deploy/deploy.sh) rsync's this file + Caddyfile
+# to the server and runs that command for you.
+
+name: stocktrace
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stocktrace}
+      POSTGRES_USER: ${POSTGRES_USER:-stocktrace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stocktrace} -d ${POSTGRES_DB:-stocktrace}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${STOCKTRACE_IMAGE:-ghcr.io/sivaramc/stocktrace:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-stocktrace}
+      DB_USERNAME: ${POSTGRES_USER:-stocktrace}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      STOCKTRACE_JWT_SECRET: ${STOCKTRACE_JWT_SECRET:?STOCKTRACE_JWT_SECRET is required (32+ bytes)}
+      STOCKTRACE_JWT_TTL_SECONDS: ${STOCKTRACE_JWT_TTL_SECONDS:-28800}
+      STOCKTRACE_ADMIN_EMAIL: ${STOCKTRACE_ADMIN_EMAIL:?STOCKTRACE_ADMIN_EMAIL is required}
+      STOCKTRACE_ADMIN_PASSWORD: ${STOCKTRACE_ADMIN_PASSWORD:?STOCKTRACE_ADMIN_PASSWORD is required}
+      CHARTINK_WEBHOOK_SECRET: ${CHARTINK_WEBHOOK_SECRET:-}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      STOCKTRACE_DOMAIN: ${STOCKTRACE_DOMAIN:?STOCKTRACE_DOMAIN is required (e.g. api.stocktrace.in)}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required for Let's Encrypt}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

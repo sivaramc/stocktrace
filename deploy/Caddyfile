@@ -1,0 +1,41 @@
+# Caddy 2 reverse proxy with automatic Let's Encrypt TLS.
+#
+# {$VAR} is substituted by Caddy from the container environment
+# (STOCKTRACE_DOMAIN / ACME_EMAIL set by docker-compose).
+
+{
+    email {$ACME_EMAIL}
+}
+
+{$STOCKTRACE_DOMAIN} {
+    encode zstd gzip
+
+    # Security headers (strict-ish defaults; override per route if a browser
+    # client ever needs to be embedded elsewhere).
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # SSE endpoint — keep connection open, disable buffering.
+    @sse path /api/feed/*
+    handle @sse {
+        reverse_proxy app:8080 {
+            flush_interval -1
+            transport http {
+                read_timeout 24h
+                write_timeout 24h
+            }
+        }
+    }
+
+    reverse_proxy app:8080
+
+    log {
+        output stdout
+        format console
+    }
+}
